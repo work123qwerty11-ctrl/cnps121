@@ -14,6 +14,43 @@
     return;
   }
 
+  // Заполняем список дат автоматически: сегодня + следующие 30 дней.
+  // Значение отправляется в формате ДД.ММ.ГГГГ, чтобы в Telegram оно было
+  // сразу читаемым, а не выглядело как техническая дата.
+  const contactDate = document.querySelector("#contactDate");
+  if (contactDate && contactDate.options.length === 1) {
+    const formatter = new Intl.DateTimeFormat("ru-RU", {
+      timeZone: "Europe/Kyiv",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    });
+
+    const dateParts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Kyiv",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    });
+
+    const now = new Date();
+    for (let i = 0; i <= 30; i += 1) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + i);
+
+      const parts = Object.fromEntries(
+        dateParts.formatToParts(d).map(({ type, value }) => [type, value])
+      );
+      const iso = `${parts.year}-${parts.month}-${parts.day}`;
+      const label = formatter.format(d);
+
+      const option = document.createElement("option");
+      option.value = label;
+      option.textContent = i === 0 ? `${label} (сегодня)` : label;
+      contactDate.appendChild(option);
+    }
+  }
+
   // FAQ
   document.querySelectorAll(".faq-list details").forEach((item) => {
     item.addEventListener("toggle", () => {
@@ -58,9 +95,11 @@
     const experience = String(formData.get("experience") || "").trim();
     const income = String(formData.get("income") || "").trim();
 
-    // НОВОЕ
-    const date = String(formData.get("date") || "").trim();
-    const time = String(formData.get("time") || "").trim();
+    // Дата и время: в HTML используются contact_date / contact_time.
+    // Раньше JS читал поля с именами date / time, которых в форме нет,
+    // поэтому эти значения уходили пустыми.
+    const date = String(formData.get("contact_date") || "").trim();
+    const time = String(formData.get("contact_time") || "").trim();
 
     const consent = formData.get("consent") === "yes";
 
@@ -105,9 +144,12 @@
           experience: experience,
           income: income,
 
-          // ДАТА И ВРЕМЯ
+          // Дата и время — отправляем под обоими именами для совместимости
+          // с текущим Worker и с возможными старыми обработчиками.
           date: date,
           time: time,
+          contact_date: date,
+          contact_time: time,
 
           consent: consent,
           website: "",
